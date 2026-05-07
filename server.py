@@ -1,6 +1,6 @@
 import os
 
-import httpx
+# import httpx
 from mcp.server.fastmcp import FastMCP
 
 from obsidian_vault import ObsidianVault
