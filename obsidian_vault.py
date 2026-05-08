@@ -16,12 +16,12 @@ DEFAULT_BACKUP_PATH = "./vault-backup"
 class ObsidianVault:
     def __init__(self, vault_path: str, backup_path: str = DEFAULT_BACKUP_PATH):
         self.vault_path: Path = Path(vault_path)
-        self.backup_path: Path = Path(backup_path)
-        self._root_vault_item: VaultItem | None = None
         if not self.vault_path.exists():
             raise ValueError(
                 f"The provided vault path does not exist! Path is {vault_path}"
             )
+        self.backup_path: Path = Path(backup_path)
+        self._root_vault_item: VaultItem | None = None
 
     @property
     def root(self) -> VaultItem:
@@ -38,8 +38,25 @@ class ObsidianVault:
             )
         copytree(self.vault_path, self.backup_path, dirs_exist_ok=True)
 
-    def list_notes(self) -> VaultItem:
+    def list_notes(self, folder: str = "") -> VaultItem:
+        if folder:
+            target_folder = self._find_folder(folder, self.root)
+            if not target_folder:
+                raise ValueError(
+                    f"A folder with name {folder} was not found in this Obsidian vault!"
+                )
+            return target_folder
         return self.root
+
+    def _find_folder(self, folder: str, root: VaultItem) -> VaultItem | None:
+        for vault_item in root.children:
+            if vault_item.type == VaultItemType.FOLDER:
+                if vault_item.name == folder:
+                    return vault_item
+                result = self._find_folder(folder, vault_item)
+                if result:
+                    return result
+        return None
 
     def _build_vault_tree(self):
         return VaultItem(
