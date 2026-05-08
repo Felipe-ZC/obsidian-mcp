@@ -1,3 +1,4 @@
+import json
 import os
 
 # import httpx
@@ -14,12 +15,13 @@ vault = ObsidianVault(VAULT_PATH)
 
 @mcp.tool()
 async def list_notes() -> str:
-    """Get all notes in a vault.
+    """Returns a JSON document that describes an Obsidian vault as a tree structure.
+    Each entry in the JSON doc has a name, a path string, a type (folder or note) and the
+    children under this entry.
 
-    Args:
-        vault_path: The path to an Obsidian vault.
-    """
-    return vault.list_notes()
+    Only folders can have children, notes are the leaves of the tree. Use this tool when a user
+    asks for all the notes in the vault."""
+    return json.dumps(vault.list_notes().to_dict(), indent=2)
 
 
 if __name__ == "__main__":
