@@ -20,3 +20,7 @@ async def list_notes() -> str:
         vault_path: The path to an Obsidian vault.
     """
     return vault.list_notes()
+
+
+if __name__ == "__main__":
+    mcp.run(transport="stdio")

@@ -1,11 +1,47 @@
+import json
+from dataclasses import dataclass, field
 from pathlib import Path
 from shutil import copytree
 
-from utils import get_sorted_files, is_valid_obsidian_folder, is_valid_obsidian_note
+from utils import (
+    VaultItemDict,
+    VaultItemType,
+    get_sorted_files,
+    is_valid_obsidian_folder,
+    is_valid_obsidian_note,
+)
 
-LIST_SEPARATOR_STR = "\n"
 DEFAULT_BACKUP_PATH = "./vault-backup"
-EMPTY_SPACE_STR = " "
+
+
+@dataclass
+class VaultItem:
+    name: str
+    path_str: str
+    type: VaultItemType
+    children: list["VaultItem"] = field(default_factory=list)
+
+    def to_dict(self) -> VaultItemDict:
+        result: VaultItemDict = {
+            "name": self.name,
+            "path_str": self.path_str,
+            "type": self.type.value,
+        }
+        if self.children:
+            result["children"] = [child.to_dict() for child in self.children]
+        return result
+
+
+def create_vault_item_from_path_item(
+    item: Path, children: list[VaultItem] | None = None
+) -> VaultItem:
+    vault_item_type = VaultItemType.FOLDER if item.is_dir() else VaultItemType.NOTE
+    return VaultItem(
+        name=item.name,
+        path_str=str(item),
+        type=vault_item_type,
+        children=children or [],
+    )
 
 
 class ObsidianVault:
@@ -26,17 +62,30 @@ class ObsidianVault:
             )
         copytree(self.vault_path, self.backup_path, dirs_exist_ok=True)
 
-    def list_notes(self) -> str:
-        str_list = self._get_notes_list_str(self.vault_path)
-        return LIST_SEPARATOR_STR.join(str_list)
+    def list_notes(self) -> VaultItem:
+        root_vault_item = VaultItem(
+            name=self.vault_path.name,
+            path_str=str(self.vault_path),
+            type=VaultItemType.FOLDER,
+            children=self._gather_vault_item_children(self.vault_path),
+        )
+        return root_vault_item
 
-    def _get_notes_list_str(self, root: Path, depth: int = 0) -> list[str]:
-        output_str_list: list[str] = []
-        spacer: str = EMPTY_SPACE_STR * (depth * 2)
-        for item in get_sorted_files(root):
-            if is_valid_obsidian_folder(item):
-                output_str_list.append(f"{spacer}- {item.name}")
-                output_str_list.extend(self._get_notes_list_str(item, depth + 1))
-            elif is_valid_obsidian_note(item):
-                output_str_list.append(f"{spacer}|- {item.name}")
-        return output_str_list
+    def _gather_vault_item_children(self, root_path: Path) -> list[VaultItem]:
+        vault_item_list: list[VaultItem] = []
+
+        for item in get_sorted_files(root_path):
+            if is_valid_obsidian_folder(item) or is_valid_obsidian_note(item):
+                new_vault_item = create_vault_item_from_path_item(item)
+                if item.is_dir():
+                    new_vault_item.children.extend(
+                        self._gather_vault_item_children(item)
+                    )
+                vault_item_list.append(new_vault_item)
+
+        return vault_item_list
+
+
+vault = ObsidianVault("/home/zubuddy/Documents/obsidian/Felipe")
+root_vault_item = vault.list_notes()
+print(json.dumps(root_vault_item.to_dict(), indent=2))
