@@ -32,5 +32,23 @@ async def list_notes(folder: str = "") -> str:
     return json.dumps(vault.list_notes(folder).to_dict(), indent=2)
 
 
+@mcp.tool()
+async def search_vault(query: str = "") -> str:
+    """
+    Returns a JSON list of notes or folders in the Obsidian vault that match
+    the query argument. Use this tool when the user asks to search for a specific
+    note or folder, if the user asks to search the vault but does not provide a
+    query, this function will return the result of list_notes (all the notes in the vault).
+
+    Args:
+        query: The search query to use to filter out notes and folders in the vault.
+
+    """
+    if not query:
+        return await list_notes()
+    results = [result.to_dict() for result in vault.search_vault(query)]
+    return json.dumps(results, indent=2)
+
+
 if __name__ == "__main__":
     mcp.run(transport="stdio")

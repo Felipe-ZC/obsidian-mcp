@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from shutil import copytree
 
@@ -38,6 +39,9 @@ class ObsidianVault:
             )
         copytree(self.vault_path, self.backup_path, dirs_exist_ok=True)
 
+    def search_vault(self, query: str) -> list[VaultItem]:
+        return self._search_vault_rec(self.root, query)
+
     def list_notes(self, folder: str = "") -> VaultItem:
         if folder:
             target_folder = self._find_folder(folder, self.root)
@@ -47,6 +51,19 @@ class ObsidianVault:
                 )
             return target_folder
         return self.root
+
+    def _search_vault_rec(
+        self,
+        root: VaultItem,
+        query: str,
+    ) -> list[VaultItem]:
+        matches: list[VaultItem] = []
+        for vault_item in root.children:
+            if re.search(query, vault_item.name):
+                matches.append(vault_item)
+            if vault_item.type == VaultItemType.FOLDER:
+                matches.extend(self._search_vault_rec(vault_item, query))
+        return matches
 
     def _find_folder(self, folder: str, root: VaultItem) -> VaultItem | None:
         for vault_item in root.children:
@@ -63,19 +80,15 @@ class ObsidianVault:
             name=self.vault_path.name,
             path_str=str(self.vault_path),
             type=VaultItemType.FOLDER,
-            children=self._gather_vault_item_children(self.vault_path),
+            children=self._get_vault_item_children(self.vault_path),
         )
 
-    def _gather_vault_item_children(self, root_path: Path) -> list[VaultItem]:
-        vault_item_list: list[VaultItem] = []
-
+    def _get_vault_item_children(self, root_path: Path) -> list[VaultItem]:
+        children: list[VaultItem] = []
         for item in get_sorted_files(root_path):
             if is_valid_obsidian_folder(item) or is_valid_obsidian_note(item):
                 new_vault_item = create_vault_item_from_path_item(item)
                 if item.is_dir():
-                    new_vault_item.children.extend(
-                        self._gather_vault_item_children(item)
-                    )
-                vault_item_list.append(new_vault_item)
-
-        return vault_item_list
+                    new_vault_item.children.extend(self._get_vault_item_children(item))
+                children.append(new_vault_item)
+        return children
