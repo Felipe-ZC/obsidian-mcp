@@ -52,6 +52,15 @@ class ObsidianVault:
             return target_folder
         return self.root
 
+    def read_note(self, note_path: str) -> str:
+        with open(note_path, "r") as file:
+            text_data = file.read()
+            return text_data
+
+    def append_to_note(self, note_path: str, append_markdown_text: str):
+        with open(note_path, "a") as file:
+            file.write("\n" + append_markdown_text + "\n")
+
     def _search_vault_rec(
         self,
         root: VaultItem,
