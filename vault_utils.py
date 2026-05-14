@@ -1,19 +1,8 @@
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import TypedDict
-
-
-def is_valid_obsidian_folder(item: Path) -> bool:
-    return item.is_dir() and not item.name.startswith(".")
-
-
-def is_valid_obsidian_note(item: Path) -> bool:
-    return item.is_file() and item.name.endswith(".md")
-
-
-def get_sorted_files(root: Path) -> list[Path]:
-    return sorted(root.glob("*"), key=lambda p: (p.is_file(), p.name.lower()))
 
 
 class VaultItemType(Enum):
@@ -56,3 +45,61 @@ def create_vault_item_from_path_item(
         type=vault_item_type,
         children=children or [],
     )
+
+
+def is_valid_obsidian_folder(item: Path) -> bool:
+    return item.is_dir() and not item.name.startswith(".")
+
+
+def is_valid_obsidian_note(item: Path) -> bool:
+    return item.is_file() and item.name.endswith(".md")
+
+
+def get_sorted_files(root: Path) -> list[Path]:
+    return sorted(root.glob("*"), key=lambda p: (p.is_file(), p.name.lower()))
+
+
+def get_vault_item_children(root_path: Path) -> list[VaultItem]:
+    children: list[VaultItem] = []
+    for item in get_sorted_files(root_path):
+        if is_valid_obsidian_folder(item) or is_valid_obsidian_note(item):
+            new_vault_item = create_vault_item_from_path_item(item)
+            if item.is_dir():
+                new_vault_item.children.extend(get_vault_item_children(item))
+            children.append(new_vault_item)
+    return children
+
+
+def search_vault_rec(root: VaultItem, query: str) -> list[VaultItem]:
+    matches: list[VaultItem] = []
+    for vault_item in root.children:
+        if re.search(query, vault_item.name):
+            matches.append(vault_item)
+        if vault_item.type == VaultItemType.FOLDER:
+            matches.extend(search_vault_rec(vault_item, query))
+    return matches
+
+
+def find_folder(folder: str, root: VaultItem) -> VaultItem | None:
+    for vault_item in root.children:
+        if vault_item.type == VaultItemType.FOLDER:
+            if vault_item.name == folder:
+                return vault_item
+            result = find_folder(folder, vault_item)
+            if result:
+                return result
+    return None
+
+
+def find_note(
+    root: VaultItem, note_name: str = "", note_path: str = ""
+) -> VaultItem | None:
+    for vault_item in root.children:
+        if vault_item.type == VaultItemType.NOTE:
+            if vault_item.name == note_name or vault_item.path_str == note_path:
+                return vault_item
+        elif vault_item.type == VaultItemType.FOLDER:
+            result = find_note(vault_item, note_name, note_path)
+            if result:
+                return result
+    return None

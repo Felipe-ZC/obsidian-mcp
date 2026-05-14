@@ -1,10 +1,10 @@
 import json
 import os
 
-# import httpx
 from mcp.server.fastmcp import FastMCP
 
 from obsidian_vault import ObsidianVault
+from vault_utils import VaultItem
 
 USER_AGENT = "obsidian-mcp/0.1 (contact@example.com)"
 VAULT_PATH = os.getenv("VAULT_PATH", "")
@@ -35,45 +35,73 @@ async def list_notes(folder: str = "") -> str:
 @mcp.tool()
 async def search_vault(query: str = "") -> str:
     """
-    Returns a JSON list of notes or folders in the Obsidian vault that match
-    the query argument. Use this tool when the user asks to search for a specific
-    note or folder, if the user asks to search the vault but does not provide a
-    query, call list_notes without a folder argument instead.
+    Finds and returns the metadata of a notes or folders in the Obsidian vault.
+    Use this tool when you have a note or folder name and need the full VaultItem
+    metadata (including the absolute path_str).
 
     Args:
-        query: The search query to use to filter out notes and folders in the vault.
-
+        query: The name of the note or folder in the vault.
     """
     results = [result.to_dict() for result in vault.search_vault(query)]
     return json.dumps(results, indent=2)
 
 
 @mcp.tool()
+async def find_note(note_name: str = "", note_path: str = "") -> str:
+    """
+    Finds and returns the metadata of a specific note in the Obsidian vault.
+    Use this tool when you have a note name or path and need the full VaultItem
+    metadata (including the absolute path_str) before reading or writing to it.
+
+    Args:
+        note_name: The filename of the note (e.g. "Daily Log.md").
+        note_path: The absolute path of the note. Provide either note_name
+        or note_path, at least one is required.
+    """
+    try:
+        result: VaultItem | None = vault.find_note(note_name, note_path)
+    except ValueError as e:
+        return str(e)
+    if not result:
+        return "No Obsidian note found with that name or path in the vault."
+    return json.dumps(result.to_dict(), indent=2)
+
+
+@mcp.tool()
 async def read_note(note_path: str) -> str:
     """
-    Returns the text contained inside an Obsidian note. Use this tool when the user
-    asks for the contents of an Obsidian note or when the LLM needs to read the contents
-    of a note for analysis, explanation etc.
+    Returns the full text content of an Obsidian note.
+    Use this when the user asks to read, summarize, or analyze a note's contents.
+    The note_path argument must be the absolute path of the note — use the path_str
+    field from a VaultItem returned by find_note or search_vault.
 
     Args:
         note_path: The absolute path of the note to read.
-
     """
-    return json.dumps(vault.read_note(note_path), indent=2)
+    result: VaultItem | None = vault.find_note(note_path=note_path)
+    if not result:
+        return "No Obsidian note found with that path in the vault."
+    return vault.read_note(result)
 
 
 @mcp.tool()
 async def append_to_note(note_path: str, append_markdown_text: str):
     """
-    Appends the append_markdown_text argument to the end of the specified note.
-    Use this when the user asks for adding content to a note.
+    Appends markdown text to the end of an Obsidian note.
+    Use this when the user asks to add content to an existing note.
+
+    Before calling this tool:
+    1. Use find_note or search_vault to confirm the exact note and get its path_str.
+    2. ALWAYS confirm with the user which note will be modified before appending.
 
     Args:
-        note_path: The absolute path of the note to read.
-        append_markdown_text: The text to append to the note.
-
+        note_path: The absolute path of the note to append to (from path_str of a VaultItem).
+        append_markdown_text: The markdown text to append.
     """
-    vault.append_to_note(note_path, append_markdown_text)
+    result: VaultItem | None = vault.find_note(note_path=note_path)
+    if not result:
+        return "No Obsidian note found with that path in the vault."
+    vault.append_to_note(result, append_markdown_text)
 
 
 if __name__ == "__main__":
