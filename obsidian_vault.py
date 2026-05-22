@@ -70,5 +70,6 @@ class ObsidianVault:
             name=self.vault_path.name,
             path_str=str(self.vault_path),
             type=VaultItemType.FOLDER,
+            text_content="",
             children=get_vault_item_children(self.vault_path),
         )

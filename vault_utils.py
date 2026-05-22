@@ -22,6 +22,7 @@ class VaultItem:
     name: str
     path_str: str
     type: VaultItemType
+    text_content: str
     children: list["VaultItem"] = field(default_factory=list)
 
     def to_dict(self) -> VaultItemDict:
@@ -43,6 +44,7 @@ def create_vault_item_from_path_item(
         name=item.name,
         path_str=str(item),
         type=vault_item_type,
+        text_content=item.read_text() if item.is_file() else "",
         children=children or [],
     )
 
@@ -73,7 +75,9 @@ def get_vault_item_children(root_path: Path) -> list[VaultItem]:
 def search_vault_rec(root: VaultItem, query: str) -> list[VaultItem]:
     matches: list[VaultItem] = []
     for vault_item in root.children:
-        if re.search(query, vault_item.name):
+        if vault_item.type == VaultItemType.NOTE and (
+            query in vault_item.name or query in vault_item.text_content
+        ):
             matches.append(vault_item)
         if vault_item.type == VaultItemType.FOLDER:
             matches.extend(search_vault_rec(vault_item, query))

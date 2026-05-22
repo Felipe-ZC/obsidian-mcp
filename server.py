@@ -18,6 +18,10 @@ async def list_notes(folder: str = "") -> str:
     """
     Returns the metadata of an Obsidian vault, this being a JSON
     document that represents an Obsidian vault as a tree structure.
+
+    There is a single root VaultItem and its children represent
+    folders or notes.
+
     Each entry in the JSON doc has a name, a path string, a type
     (folder or note) and the children under this folder (more folders or notes).
 
@@ -38,6 +42,10 @@ async def search_vault(query: str = "") -> str:
     Finds and returns the metadata of a notes or folders in the Obsidian vault.
     Use this tool when you have a note or folder name and need the full VaultItem
     metadata (including the absolute path_str).
+
+    This tool also searches the vault based on the text content of an Obsidian note.
+    In other words this tool performs a substring search for the query in note's text
+    content.
 
     Args:
         query: The name of the note or folder in the vault.
